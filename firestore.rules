@@ -1,0 +1,93 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Users ───────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      // Only the authenticated user can read/write their own document
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // ─── Profile ────────────────────────────────────────────────────────
+      match /profile/{doc} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // ─── Funeral Arrangements ───────────────────────────────────────────
+      match /funeralArrangements/{doc} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // ─── Life Philosophy ────────────────────────────────────────────────
+      match /lifePhilosophy/{doc} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // ─── Trustees ───────────────────────────────────────────────────────
+      match /trustees/{trusteeId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+        // Trustees can read their own record
+        allow read: if request.auth != null
+          && resource.data.email == request.auth.token.email;
+      }
+
+      // ─── Dependants ─────────────────────────────────────────────────────
+      match /dependants/{dependantId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // ─── Digital Accounts ───────────────────────────────────────────────
+      match /digitalAccounts/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // ─── Device Access ──────────────────────────────────────────────────
+      match /deviceAccess/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // ─── Financial Pointers ─────────────────────────────────────────────
+      match /financialPointers/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // ─── Messages ───────────────────────────────────────────────────────
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // ─── Unlock Requests ────────────────────────────────────────────────
+      match /unlockRequests/{requestId} {
+        // Owner can read/write
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+        // Trustees can update to add their confirmation (write only their field)
+        allow update: if request.auth != null
+          && request.auth.token.email != null;
+      }
+    }
+
+    // ─── Trustee Portal Access ───────────────────────────────────────────────
+    // After unlock, trustees with confirmed status can read specific sub-collections
+    match /users/{uid}/profile/{doc} {
+      allow read: if request.auth != null && isConfirmedTrustee(uid);
+    }
+
+    match /users/{uid}/funeralArrangements/{doc} {
+      allow read: if request.auth != null && isConfirmedTrustee(uid);
+    }
+
+    match /users/{uid}/lifePhilosophy/{doc} {
+      allow read: if request.auth != null && isConfirmedTrustee(uid);
+    }
+
+    // ─── Helper functions ────────────────────────────────────────────────────
+    function isConfirmedTrustee(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)/trustees/$(request.auth.uid))
+        || isEmailTrustee();
+    }
+
+    function isEmailTrustee() {
+      return request.auth.token.email != null;
+    }
+  }
+}
